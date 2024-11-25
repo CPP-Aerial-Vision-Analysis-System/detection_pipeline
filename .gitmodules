@@ -1,0 +1,4 @@
+[submodule "catkin_ws/src/ultralytics_ros"]
+	path = catkin_ws/src/ultralytics_ros
+	url = git@github.com:suas-jetson/ultralytics_ros.git
+	branch = noetic-devel

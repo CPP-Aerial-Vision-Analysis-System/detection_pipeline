@@ -1,0 +1,15 @@
+# ROS Specific
+build/
+devel/
+log/
+
+# Python Specific
+*.pyc
+__pycache__/
+
+# CMAKE Specific
+CMakeFiles/
+CmakeCache.txt
+cmake_install.cmake
+
+.vscode
