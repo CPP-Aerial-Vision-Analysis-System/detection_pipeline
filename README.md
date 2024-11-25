@@ -2,3 +2,8 @@
 
 ## Setup:
 
+
+
+
+### If you get libgomp error on jetson:
+- run `export LD_PRELOAD=/usr/lib/aarch64-linux-gnu/libgomp.so.1`
