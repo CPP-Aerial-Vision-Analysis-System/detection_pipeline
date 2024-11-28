@@ -1,4 +1,4 @@
 [submodule "catkin_ws/src/ultralytics_ros"]
 	path = catkin_ws/src/ultralytics_ros
-	url = git@github.com:CPP-Aerial-Vision-Analysis-System/ultralytics_ros.git
+	url = https://github.com/CPP-Aerial-Vision-Analysis-System/ultralytics_ros.git
 	branch = noetic-devel
