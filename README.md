@@ -1,5 +1,10 @@
 # This repo contains the object-detection flight software that would be used during the competition
 
+## Running old mavlink code
+- before following the "running the pipeline" instructions, copy the code from the old mavlink py file into `catkin_ws/src/ultralytics_ros/script
+/tracker_node.py`
+- then follow instructions but skip 4c. 
+
 ## Dev
 
 ## Running the pipeline:
