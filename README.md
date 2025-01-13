@@ -5,7 +5,15 @@
 /tracker_node.py`
 - then follow instructions but skip 4c. 
 
-## Dev
+## Dev (for redownloading on jetson or on any machine with ros noetic)
+1. Git clone with submodules
+- git clone --recurse-submodules https://github.com/CPP-Aerial-Vision-Analysis-System/detection_pipeline.git
+2. `cd catkin_ws/src`
+3. `python3 -m pip install -r ultralytics_ros/requirements.txt`
+- if on jetson make sure to install the torch and torchvision version compatible with jetpack. instructions here: [PyTorch for Jetson - NVIDIA Developer Forums](https://forums.developer.nvidia.com/t/pytorch-for-jetson/72048)
+4. `cd ..` (you should be in catkin_ws after this)
+5. `rosdep install -r -y -i --from-paths .`
+6. `catkin_make`
 
 ## Running the pipeline:
 1. run `systemctl stop docker`. this stops docker to free ram (ran once per device boot)
