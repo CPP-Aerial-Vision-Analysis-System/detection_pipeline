@@ -4,7 +4,7 @@
 - before following the "running the pipeline" instructions, copy the code from the old mavlink py file into `catkin_ws/src/ultralytics_ros/script
 /tracker_node.py`
 - then follow instructions but skip 4c. 
-test (ignore)
+
 ## Dev (for redownloading on jetson or on any machine with ros noetic)
 1. Git clone with submodules
 - git clone --recurse-submodules https://github.com/CPP-Aerial-Vision-Analysis-System/detection_pipeline.git
@@ -16,13 +16,11 @@ test (ignore)
 6. `catkin_make`
 
 ## Running the pipeline:
-1. run `systemctl stop docker`. this stops docker to free ram (ran once per device boot)
 2. run `sudo jetson_clocks`. this ensures that the jetson can be overclocked and run as efficient as possible (ran once per device boot)
-3. cd into the catkin_ws
-4. open 3 terminals and `source devel/setup.bash` in all of them. also make sure theyre all in the catkin workspace
-- 4a. terminal1: `roslaunch ultralytics_ros tracker.launch` (add `debug:=true` after the tracker.launch if you want a visual output of the results)
-- 4b. terminal2: `rosrun video_cam image_pub.py` (publishes camera frames)
-- 4c. terminal3: `rosrun ultralytics_ros yolo_result_sub` (prints out detections textually)
+3. open two terminals.
+4. cd into the catkin_ws in one terminal
+4a. plug in pixhawk (necessary) and gps (optional), and run `roslaunch mavros px4.launch fcu_url:=<path to device connection>`. Make sure a heartbeat is detected
+4b. in the terminal with the catkin ws, run `roslaunch ultralytics_ros tracker.launch`. add `debug:=true` to the end if visual output (and not just text) is needed (off by default).
 
 
 ### If you get libgomp error on jetson:
