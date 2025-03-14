@@ -3,7 +3,7 @@
 import rospy
 from mavros_msgs.msg import State
 from sensor_msgs.msg import NavSatFix
-from std_msgs.msg import Float64
+from std_msgs.msg import Float64, Bool
 from mavros_msgs.srv import StreamRate
 from gps_mavros.srv import GetGPSData, GetGPSDataResponse
 import threading
@@ -19,29 +19,25 @@ def state_cb(msg):
     global connected
     connected = msg.connected
 
-
 def gps_cb(msg):
     """Callback to store the latest GPS data."""
     global latest_gps
     latest_gps = msg
-
 
 def pose_callback(msg):
     """Callback to store the latest yaw data (Z-axis rotation)."""
     global latest_yaw
     latest_yaw = msg.data
 
-
 def set_stream_rate(stream_id=0, message_rate=10, on_off=True):
     """Set MAVROS data stream rate."""
-    rospy.wait_for_service("/mavros/set_stream_rate")
+    rospy.wait_for_service('/mavros/set_stream_rate')
     try:
-        set_rate = rospy.ServiceProxy("/mavros/set_stream_rate", StreamRate)
+        set_rate = rospy.ServiceProxy('/mavros/set_stream_rate', StreamRate)
         set_rate(stream_id, message_rate, on_off)
         rospy.loginfo(f"Stream rate set: ID={stream_id}, Rate={message_rate}Hz")
     except rospy.ServiceException as e:
         rospy.logerr(f"Failed to set stream rate: {e}")
-
 
 def handle_drone_data_request(req):
     """Service callback to return the latest GPS and yaw data."""
@@ -56,21 +52,24 @@ def handle_drone_data_request(req):
         rospy.logwarn("No GPS or yaw data received yet!")
         return GetGPSDataResponse(0, 0, 0, 0)
 
-
 def heartbeat():
-    """Heartbeat function to monitor connection status."""
+    """Heartbeat function to monitor connection status only on change."""
     rate = rospy.Rate(1)  # 1 Hz
+    last_connected = None
     while not rospy.is_shutdown():
-        if connected:
-            rospy.loginfo("Heartbeat: Connected to Pixhawk")
-        else:
-            rospy.logwarn("Heartbeat: Disconnected from Pixhawk")
+        if connected != last_connected:
+            if connected:
+                rospy.loginfo("Heartbeat: Connected to Pixhawk")
+            else:
+                rospy.logwarn("Heartbeat: Disconnected from Pixhawk")
+            last_connected = connected
         rate.sleep()
+
 
 
 if __name__ == "__main__":
     rospy.init_node("gps_mavros_service_node", anonymous=True)
-
+    
     # Set MAVROS stream rate
     set_stream_rate(stream_id=0, message_rate=1, on_off=True)
 
@@ -87,5 +86,6 @@ if __name__ == "__main__":
     heartbeat_thread = threading.Thread(target=heartbeat)
     heartbeat_thread.daemon = True
     heartbeat_thread.start()
+
 
     rospy.spin()
