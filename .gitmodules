@@ -2,3 +2,6 @@
 	path = catkin_ws/src/ultralytics_ros
 	url = https://github.com/CPP-Aerial-Vision-Analysis-System/ultralytics_ros.git
 	branch = noetic-devel
+[submodule "catkin_ws/src/sitl-gazebo"]
+	path = catkin_ws/src/sitl-gazebo
+	url = https://github.com/CPP-Aerial-Vision-Analysis-System/sitl-gazebo.git
