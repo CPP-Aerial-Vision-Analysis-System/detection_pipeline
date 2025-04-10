@@ -64,6 +64,7 @@ To run the simulation component of the project on your personal computer:
 roslaunch sitl-gazebo apm.launch
 ```
 6. You can also run object detection within the sim by launching the pipeline as described in the next section but without launching mavros since it is already launched. **If doing this, make sure** that `input_topic` is set to `/webcam/image-raw/` instead of just `image_raw` when running simulation.
+7. To see the raw output of what the drone is seeing (raw output as in pre-detection), run: `rosrun image_view image_view image:=/webcam/image_raw`
 
 ## Running the pipeline:
 1. **(only on jetson)(optional)**. Run `sudo jetson_clocks`. This ensures that the jetson can be overclocked and run as efficiently as possible (run once per device boot).  
