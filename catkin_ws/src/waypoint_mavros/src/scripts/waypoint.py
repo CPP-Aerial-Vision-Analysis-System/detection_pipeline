@@ -16,7 +16,7 @@ class WaypointManager:
         # Subscribers for state, waypoints, and waypoint reached notifications
         rospy.Subscriber("/mavros/state", State, self.state_callback)
         rospy.Subscriber("mavros/mission/waypoints", WaypointList, self.waypoints_callback)
-        rospy.Subscriber('/mavros/mission/reached', WaypointReached, self.waypoint_reached)
+        rospy.Subscriber('/mavros/mission/reached', WaypointReached, self.wp_reached_cb)
         
         # Service clients for waypoint operations
         self.waypoint_pull_client = rospy.ServiceProxy('/mavros/mission/pull', WaypointPull)
@@ -25,6 +25,8 @@ class WaypointManager:
         
         # Initialize an empty waypoint list
         self.waypoint_list = WaypointList()
+
+        self.waypoint_reached = 0
 
         self.service = rospy.Service("/AddWaypoint", AddWaypoint, self.handle_drone_waypoint_request)
         rospy.loginfo("Waypoint service ready")
@@ -63,7 +65,7 @@ class WaypointManager:
     def insert_new_waypoint(self, lat, lon, alt, index):
         """Insert a new waypoint into the waypoint list and push the update."""
         new_waypoint = Waypoint()
-        new_waypoint.frame = 0  # Global relative altitude
+        new_waypoint.frame = 3  # Global relative altitude
         new_waypoint.command = 16  # MAV_CMD_NAV_WAYPOINT
         new_waypoint.is_current = False
         new_waypoint.autocontinue = True
@@ -79,13 +81,14 @@ class WaypointManager:
         self.push_waypoints()
         rospy.loginfo("New waypoint inserted into the WaypointList object.")
 
-    def waypoint_reached(self, msg):
+    def wp_reached_cb(self, msg):
         """Callback for when a waypoint is reached."""
         rospy.loginfo(f"Waypoint {msg.wp_seq} reached")
+        self.waypoint_reached = msg.wp_seq
 
     def handle_drone_waypoint_request(self,req):
         response = AddWaypointResponse()
-        self.insert_new_waypoint(req.latitude, req.longitude, req.altitude, index=2)
+        self.insert_new_waypoint(req.latitude, req.longitude, req.altitude, index= self.waypoint_reached + 1)
         response.success = True
         return response
     
