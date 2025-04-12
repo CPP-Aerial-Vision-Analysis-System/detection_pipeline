@@ -10,6 +10,7 @@ from mavros_msgs.srv import (
 )
 from mavros_msgs.msg import WaypointList, Waypoint, CommandCode, WaypointReached, State
 from waypoint_mavros.srv import AddWaypoint, AddWaypointResponse, AddWaypointRequest
+from waypoint_mavros.srv import DelWaypointResponse, DelWaypoint, DelWaypointRequest
 
 
 class WaypointManager:
@@ -45,7 +46,12 @@ class WaypointManager:
         self.service = rospy.Service(
             "/AddWaypoint", AddWaypoint, self.handle_drone_waypoint_request
         )
-        rospy.loginfo("Waypoint service ready")
+        rospy.loginfo("Waypoint Addition service ready")
+
+        self.del_service = rospy.Service(
+            "/DelWaypoint", DelWaypoint, self.handle_waypoint_delete_request
+        )
+        rospy.loginfo("Waypoint Deletion service ready")
 
     def state_callback(self, msg):
         """Callback to update the connection status from MAVROS."""
@@ -115,9 +121,19 @@ class WaypointManager:
         self.waypoint_reached = msg.wp_seq
 
     def handle_drone_waypoint_request(self, req):
+        """Addwaypoint rosservice request function"""
         response = AddWaypointResponse()
         self.insert_new_waypoint(
             req.latitude, req.longitude, req.altitude, index=self.waypoint_reached + 1
+        )
+        response.success = True
+        return response
+
+    def handle_waypoint_delete_request(self, req):
+        """delwaypoint rosservice request function"""
+        response = DelWaypointResponse()
+        self.delete_waypoint(
+            req.index
         )
         response.success = True
         return response
