@@ -124,7 +124,7 @@ class WaypointManager:
         """Addwaypoint rosservice request function"""
         response = AddWaypointResponse()
         self.insert_new_waypoint(
-            req.latitude, req.longitude, req.altitude, index=self.waypoint_reached + 1
+            req.latitude, req.longitude, req.altitude, req.index
         )
         response.success = True
         return response
@@ -153,6 +153,7 @@ class WaypointManager:
                 rospy.loginfo(
                     f"Successfully received {response.wp_received} waypoints."
                 )
+                rospy.set_param("/num_waypoints", str(response.wp_received))
             else:
                 rospy.loginfo("Failed to pull waypoints.")
         except rospy.ServiceException as e:
@@ -160,7 +161,7 @@ class WaypointManager:
 
         # Example: Insert a new waypoint once connected and after pulling current waypoints
         # time.sleep(2)
-        # self.insert_new_waypoint(34.0593371, -117.8211969, 101, int(response.wp_received))
+        # self.insert_new_waypoint(34.0593371, -117.8211969, 50, 2)
         # time.sleep(2)
 
         rospy.spin()
