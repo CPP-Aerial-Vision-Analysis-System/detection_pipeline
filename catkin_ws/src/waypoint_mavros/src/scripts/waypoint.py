@@ -12,6 +12,11 @@ from mavros_msgs.msg import WaypointList, Waypoint, CommandCode, WaypointReached
 from waypoint_mavros.srv import AddWaypoint, AddWaypointResponse, AddWaypointRequest
 from waypoint_mavros.srv import DelWaypointResponse, DelWaypoint, DelWaypointRequest
 
+RED = "\033[91m"
+GREEN = "\033[92m"
+YELLOW = "\033[93m"
+BLUE = "\033[94m"
+RESET = "\033[0m"
 
 class WaypointManager:
     def __init__(self):
@@ -86,6 +91,18 @@ class WaypointManager:
         except rospy.ServiceException as e:
             rospy.loginfo(f"Service call failed: {e}")
 
+    def pull_waypoints(self):
+        """Update the mission on the fcu"""
+        rospy.wait_for_service("/mavros/mission/pull")
+        try:
+            response = self.waypoint_pull_client()
+            if response.success:
+                rospy.loginfo(f"Waypoint pull success: {response.success}")
+            else:
+                rospy.logwarn("Failed to pull waypoints.")
+        except rospy.ServiceException as e:
+            rospy.logerr(f"Service call failed: {e}")
+
     def delete_waypoint(self, index):
         """Delete a waypoint from the waypoint list at the given index and push the update."""
         if 0 <= index < len(self.waypoint_list.waypoints):
@@ -110,6 +127,7 @@ class WaypointManager:
         new_waypoint.x_lat = lat
         new_waypoint.y_long = lon
         new_waypoint.z_alt = alt
+        self.pull_waypoints()
         rospy.loginfo(f"Inserting new waypoint at index {index}")
         self.waypoint_list.waypoints.insert(index, new_waypoint)
         self.push_waypoints()
@@ -123,18 +141,14 @@ class WaypointManager:
     def handle_drone_waypoint_request(self, req):
         """Addwaypoint rosservice request function"""
         response = AddWaypointResponse()
-        self.insert_new_waypoint(
-            req.latitude, req.longitude, req.altitude, req.index
-        )
+        self.insert_new_waypoint(req.latitude, req.longitude, req.altitude, req.index)
         response.success = True
         return response
 
     def handle_waypoint_delete_request(self, req):
         """delwaypoint rosservice request function"""
         response = DelWaypointResponse()
-        self.delete_waypoint(
-            req.index
-        )
+        self.delete_waypoint(req.index)
         response.success = True
         return response
 

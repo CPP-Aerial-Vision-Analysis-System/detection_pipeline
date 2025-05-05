@@ -54,6 +54,7 @@ To run the simulation component of the project on your personal computer:
      ```bash
      roslaunch sitl-gazebo runway.launch
      ```
+   - (for flight test version) instead of `runway.launch`, run `flight-test.launch`
 3. (Optional) Modify simulation parameters (e.g., camera feed, object positions, environment) in the corresponding launch or config files.
 4. Start sitl interface with mavproxy:
    ```bash
