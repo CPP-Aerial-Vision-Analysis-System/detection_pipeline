@@ -48,6 +48,7 @@
 #         # Replace with actual camera trigger logic
 #         rospy.logwarn("Camera triggered. No camera attached")
 from mavros_msgs.msg import StatusText
+from std_msgs.msg import Bool
 import rospy
 import re
 
@@ -58,6 +59,7 @@ class MissionCameraTrigger:
         rospy.Subscriber(
             "/mavros/statustext/recv", StatusText, self.statustext_callback
         )
+        self.camera_trigger_pub = rospy.Publisher("/camera/trigger", Bool, queue_size=10)
 
     def statustext_callback(self, msg):
         if "DigiCamCtrl" in msg.text:
@@ -68,7 +70,7 @@ class MissionCameraTrigger:
 
     def trigger_camera(self):
         rospy.loginfo("Triggering Jetson-side camera")
-        # TODO: put camera logic here. (maybe a publisher to image_pub?)
+        self.camera_trigger_pub.publish(Bool(data=True))
 
 
 if __name__ == "__main__":

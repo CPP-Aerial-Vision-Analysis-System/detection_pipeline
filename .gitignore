@@ -13,3 +13,5 @@ CMakeCache.txt
 cmake_install.cmake
 
 .vscode
+
+catkin_ws/src/video_cam/mapping
