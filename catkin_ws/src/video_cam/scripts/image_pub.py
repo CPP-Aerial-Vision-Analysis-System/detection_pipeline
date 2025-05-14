@@ -3,13 +3,14 @@
 import rospy
 import cv2
 from sensor_msgs.msg import Image
-from std_msgs.msg import Bool
+from std_msgs.msg import Bool, Float64
 from cv_bridge import CvBridge
 import os, time
 
 publisherNodeName = "camera_sensor_publisher"
 topicName = "image_raw"
 photo_path = "/detection_pipeline/catkin_ws/src/video_cam/mapping"
+camera_enabled = False
 
 if not os.path.exists(photo_path):
     os.makedirs(photo_path)
@@ -36,7 +37,9 @@ bridgeObject = CvBridge()
 
 # flag to indicate when to save photo to disk
 capture_photo = False
-
+#flag to indicate if camera is enabled/disabled
+camera_enabled = False
+ALT_THRESHOLD = 13.716
 
 def camera_trigger_callback(msg):
     global capture_photo
@@ -44,22 +47,37 @@ def camera_trigger_callback(msg):
         rospy.loginfo("Camera trigger received. Preparing to capture a photo.")
         capture_photo = True
 
+def check_altitude(msg):
+    global camera_enabled
+    current_alt = msg.data
+    # rospy.loginfo(f"{current_alt}, {ALT_THRESHOLD}, {camera_enabled}")
+    if current_alt >= ALT_THRESHOLD:
+        if not camera_enabled:
+            rospy.loginfo("Altitude reached. Enabling camera")
+        camera_enabled = True
+    else:
+        if camera_enabled:
+            rospy.loginfo("Ideal Altitude not reached. Disabling camera")
+        camera_enabled = False
+
 
 rospy.Subscriber("/camera/trigger", Bool, camera_trigger_callback)
+rospy.Subscriber("/mavros/global_position/rel_alt", Float64, check_altitude)
 
 while not rospy.is_shutdown():
-    returnValue, capturedFrame = videoCaptureObject.read()
-    if returnValue == True:
-        rospy.loginfo_once("Begun Camera Frame Publishing")
-        imageToTransmit = bridgeObject.cv2_to_imgmsg(capturedFrame, encoding="bgr8")
-        publisher.publish(imageToTransmit)
+    if camera_enabled:
+        returnValue, capturedFrame = videoCaptureObject.read()
+        if returnValue == True:
+            rospy.loginfo_once("Begun Camera Frame Publishing")
+            imageToTransmit = bridgeObject.cv2_to_imgmsg(capturedFrame, encoding="bgr8")
+            publisher.publish(imageToTransmit)
 
-        if capture_photo:
-            rospy.loginfo("Capturing photo...")
-            timestamp = time.strftime("%Y%m%d-%H%M%S")
-            filename = os.path.join(photo_path, f"photo_{timestamp}.jpg")
-            cv2.imwrite(filename, capturedFrame)
-            rospy.loginfo(f"Photo saved to {filename}")
-            capture_photo = False
+            if capture_photo:
+                rospy.loginfo("Capturing photo...")
+                timestamp = time.strftime("%Y%m%d-%H%M%S")
+                filename = os.path.join(photo_path, f"photo_{timestamp}.jpg")
+                cv2.imwrite(filename, capturedFrame)
+                rospy.loginfo(f"Photo saved to {filename}")
+                capture_photo = False
 
     rate.sleep()
