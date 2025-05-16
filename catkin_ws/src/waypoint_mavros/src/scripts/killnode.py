@@ -39,7 +39,7 @@ class KillNode:
         for node in rosnode.get_node_names():
             if node != current_node:
                 nodes_list.append(node)
-        
+
         try:
             rosnode.kill_nodes(nodes_list)
             rospy.loginfo(f"Killed nodes: {nodes_list}")
@@ -48,7 +48,8 @@ class KillNode:
 
     def shutdown_jetson(self):
         rospy.loginfo("Executing Jetson shutdown command...")
-        os.system("sudo shutdown now")
+        password = "UAV_Lab"
+        os.system(f"echo {password} | sudo -S shutdown now")
 
 
 if __name__ == "__main__":
