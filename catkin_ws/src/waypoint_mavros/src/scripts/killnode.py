@@ -25,9 +25,9 @@ class KillNode:
             self.shutdown_jetson()
 
     def send_ack(self, text):
-        # Optional feedback to the GCS
+        # feedback to gcs (mission planner in messages tab)
         status_msg = StatusText()
-        status_msg.severity = 6  # INFO level
+        status_msg.severity = 6  # INFO level. 6=notice
         status_msg.text = text
         self.message_sender.publish(status_msg)
 
