@@ -9,7 +9,8 @@ import os, time
 
 publisherNodeName = "camera_sensor_publisher"
 topicName = "image_raw"
-photo_path = "/detection_pipeline/catkin_ws/src/video_cam/mapping"
+photo_path = "/home/astra/dynamic_flight/catkin_ws/src/video_cam/"
+mapping_photo_path = "/home/astra/dynamic_flight/catkin_ws/src/video_cam/mapping"  # TODO: change to dynamic path based on ros package
 camera_enabled = False
 
 if not os.path.exists(photo_path):
@@ -29,23 +30,25 @@ pipeline = (
 )
 
 
-# videoCaptureObject=cv2.VideoCapture(pipeline, cv2.CAP_GSTREAMER)
-videoCaptureObject = cv2.VideoCapture(0)
+videoCaptureObject = cv2.VideoCapture(pipeline, cv2.CAP_GSTREAMER)
+# videoCaptureObject = cv2.VideoCapture(0)
 
 
 bridgeObject = CvBridge()
 
 # flag to indicate when to save photo to disk
 capture_photo = False
-#flag to indicate if camera is enabled/disabled
+# flag to indicate if camera is enabled/disabled
 camera_enabled = False
 ALT_THRESHOLD = 13.716
+
 
 def camera_trigger_callback(msg):
     global capture_photo
     if msg.data:
         rospy.loginfo("Camera trigger received. Preparing to capture a photo.")
         capture_photo = True
+
 
 def check_altitude(msg):
     global camera_enabled
@@ -71,11 +74,16 @@ while not rospy.is_shutdown():
             rospy.loginfo_once("Begun Camera Frame Publishing")
             imageToTransmit = bridgeObject.cv2_to_imgmsg(capturedFrame, encoding="bgr8")
             publisher.publish(imageToTransmit)
+            timestamp = time.strftime("%Y%m%d-%H%M%S")
+            filename = os.path.join(photo_path, f"photo_{timestamp}.jpg")
+            cv2.imwrite(filename, capturedFrame)
 
             if capture_photo:
                 rospy.loginfo("Capturing photo...")
                 timestamp = time.strftime("%Y%m%d-%H%M%S")
-                filename = os.path.join(photo_path, f"photo_{timestamp}.jpg")
+                filename = os.path.join(
+                    mapping_photo_path, f"mapping_photo_{timestamp}.jpg"
+                )
                 cv2.imwrite(filename, capturedFrame)
                 rospy.loginfo(f"Photo saved to {filename}")
                 capture_photo = False

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+
+    <include file="$(find mavros)/launch/px4.launch">
+        <arg name="fcu_url" value="serial:////dev/ttyUSB0:115200"/>
+        <arg name="gcs_url" value="" /> 
+        <arg name="tgt_system" value="1" /> 
+    </include>
+
+</launch>
