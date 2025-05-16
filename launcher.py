@@ -1,5 +1,6 @@
 import subprocess
 import rospy
+import rospkg
 import time
 import roslaunch
 import signal
@@ -36,12 +37,11 @@ def launch_mavros(uuid):
     """Launch MAVROS node."""
     rospy.init_node("Mavros_Master_Master", anonymous=True)
     roslaunch.configure_logging(uuid)
-
+    rp = rospkg.RosPack()
+    mavros_pkg_path = rp.get_path("waypoint_mavros")
     launch = roslaunch.parent.ROSLaunchParent(
         uuid,
-        [
-            "/home/astra/dynamic_flight/catkin_ws/src/waypoint_mavros/src/launch/roslaunch_mavros.launch"
-        ],
+        [f"{mavros_pkg_path}/src/launch/roslaunch_mavros.launch"],
     )
     launch.start()
     rospy.loginfo("MAVROS launched!")
