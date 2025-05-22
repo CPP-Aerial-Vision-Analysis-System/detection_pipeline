@@ -184,6 +184,7 @@ class WaypointManager:
         while not rospy.is_shutdown() and not self.connected:
             rospy.sleep(0.5)
         rospy.loginfo("Connection established. Proceeding with waypoint operations.")
+        self.send_status("Heartbeat Established with WP manager")
 
         # Wait for the waypoint pull service to be available and pull current waypoints
         rospy.wait_for_service("/mavros/mission/pull")
