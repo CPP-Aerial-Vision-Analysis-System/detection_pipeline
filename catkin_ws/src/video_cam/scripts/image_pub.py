@@ -14,6 +14,7 @@ topicName = "image_raw"
 rp = rospkg.RosPack()
 photo_path = os.path.join(rp.get_path("video_cam"), "camera_feed")
 mapping_photo_path = os.path.join(rp.get_path("video_cam"), "mapping")
+detected_object_path = os.path.join(rp.get_path("video_cam"), "detected")
 # photo_path = "/home/astra/dynamic_flight/catkin_ws/src/video_cam/"
 # mapping_photo_path = "/home/astra/dynamic_flight/catkin_ws/src/video_cam/mapping"  # TODO: change to dynamic path based on ros package
 camera_enabled = False
@@ -23,6 +24,9 @@ if not os.path.exists(photo_path):
 
 if not os.path.exists(mapping_photo_path):
     os.makedirs(mapping_photo_path)
+
+if not os.path.exists(detected_object_path):
+    os.makedirs(detected_object_path)
 
 rospy.init_node(publisherNodeName, anonymous=True)
 publisher = rospy.Publisher(topicName, Image, queue_size=1)
@@ -47,6 +51,7 @@ bridgeObject = CvBridge()
 
 # flag to indicate when to save photo to disk
 capture_photo = False
+capture_detected = False
 # flag to indicate if camera is enabled/disabled
 camera_enabled = False
 ALT_THRESHOLD = 13.716
@@ -65,6 +70,13 @@ def camera_trigger_callback(msg):
     if msg.data:
         rospy.loginfo("Camera trigger received. Preparing to capture a photo.")
         capture_photo = True
+
+
+def object_detected_callback(msg):
+    global capture_detected
+    if msg.data:
+        rospy.loginfo("Object Camera trigger received. Preparing to capture a photo.")
+        capture_detected = True
 
 
 def check_altitude(msg):
@@ -94,7 +106,11 @@ def check_altitude(msg):
 
 
 # rospy.Subscriber("/webcam/image_raw", Image, sim_image_callback)
+
+## up to here
+
 rospy.Subscriber("/camera/trigger", Bool, camera_trigger_callback)
+rospy.Subscriber("/camera/object_detected", Bool, object_detected_callback)
 rospy.Subscriber("/mavros/global_position/rel_alt", Float64, check_altitude)
 
 while not rospy.is_shutdown():
@@ -117,6 +133,15 @@ while not rospy.is_shutdown():
                 cv2.imwrite(filename, capturedFrame)
                 rospy.loginfo(f"Photo saved to {filename}")
                 capture_photo = False
+
+            elif capture_detected:
+                rospy.loginfo("Capturing detected photo...")
+                filename = os.path.join(
+                    detected_object_path, f"detected_photo_{timestamp}.jpg"
+                )
+                cv2.imwrite(filename, capturedFrame)
+                rospy.loginfo(f"Photo saved to {filename}")
+                capture_detected = False
 
     rate.sleep()
 
@@ -142,5 +167,14 @@ while not rospy.is_shutdown():
 #             cv2.imwrite(filename, cv_image)
 #             rospy.loginfo(f"Photo saved to {filename}")
 #             capture_photo = False
+
+#         elif capture_detected:
+#             rospy.loginfo("Capturing detected photo...")
+#             filename = os.path.join(
+#                 detected_object_path, f"detected_photo_{timestamp}.jpg"
+#             )
+#             cv2.imwrite(filename, cv_image)
+#             rospy.loginfo(f"Photo saved to {filename}")
+#             capture_detected = False
 
 #     rate.sleep()
