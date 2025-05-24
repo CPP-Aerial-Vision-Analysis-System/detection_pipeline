@@ -16,3 +16,4 @@ cmake_install.cmake
 
 catkin_ws/src/video_cam/mapping
 catkin_ws/src/video_cam/camera_feed
+catkin_ws/src/video_cam/detected
