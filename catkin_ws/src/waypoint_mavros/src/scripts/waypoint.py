@@ -197,7 +197,7 @@ class WaypointManager:
                 rospy.set_param("/num_waypoints", str(response.wp_received))
                 rospy.loginfo(self.waypoint_list.waypoints)
                 for i, wp in enumerate(self.waypoint_list.waypoints):
-                    if wp.command == 20:
+                    if wp.command == 22: # 20 is rtl, 22 is takeoff
                         rospy.set_param("/rtl_index", str(i))
             else:
                 rospy.loginfo("Failed to pull waypoints.")
