@@ -1,0 +1,17 @@
+[Unit]
+Description=Ultralytics ROS Startup Service Dynamic
+After=network.target set-usb.service
+Requires=set-usb.service
+
+[Service]
+Type=simple
+User=astra
+WorkingDirectory=/home/astra/full_mission/
+ExecStart=/bin/bash -c 'source /opt/ros/noetic/setup.bash && /home/astra/full_mission/catkin_ws/devel/setup.bash && ./launcher.sh'
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
