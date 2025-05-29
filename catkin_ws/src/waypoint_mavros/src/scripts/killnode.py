@@ -25,9 +25,9 @@ class KillNode:
             self.shutdown_jetson()
 
     def send_ack(self, text):
-        # Optional feedback to the GCS
+        # feedback to gcs (mission planner in messages tab)
         status_msg = StatusText()
-        status_msg.severity = 6  # INFO level
+        status_msg.severity = 6  # INFO level. 6=notice
         status_msg.text = text
         self.message_sender.publish(status_msg)
 
@@ -39,7 +39,7 @@ class KillNode:
         for node in rosnode.get_node_names():
             if node != current_node:
                 nodes_list.append(node)
-        
+
         try:
             rosnode.kill_nodes(nodes_list)
             rospy.loginfo(f"Killed nodes: {nodes_list}")
@@ -48,7 +48,8 @@ class KillNode:
 
     def shutdown_jetson(self):
         rospy.loginfo("Executing Jetson shutdown command...")
-        os.system("sudo shutdown now")
+        password = "UAV_Lab"
+        os.system(f"echo {password} | sudo -S shutdown now")
 
 
 if __name__ == "__main__":

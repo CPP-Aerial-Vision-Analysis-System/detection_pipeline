@@ -8,7 +8,14 @@ from mavros_msgs.srv import (
     WaypointClear,
     WaypointPushRequest,
 )
-from mavros_msgs.msg import WaypointList, Waypoint, CommandCode, WaypointReached, State
+from mavros_msgs.msg import (
+    WaypointList,
+    Waypoint,
+    CommandCode,
+    WaypointReached,
+    State,
+    StatusText,
+)
 from waypoint_mavros.srv import AddWaypoint, AddWaypointResponse, AddWaypointRequest
 from waypoint_mavros.srv import DelWaypointResponse, DelWaypoint, DelWaypointRequest
 
@@ -17,6 +24,7 @@ GREEN = "\033[92m"
 YELLOW = "\033[93m"
 BLUE = "\033[94m"
 RESET = "\033[0m"
+
 
 class WaypointManager:
     def __init__(self):
@@ -31,6 +39,9 @@ class WaypointManager:
             "mavros/mission/waypoints", WaypointList, self.waypoints_callback
         )
         rospy.Subscriber("/mavros/mission/reached", WaypointReached, self.wp_reached_cb)
+        self.status_pub = rospy.Publisher(
+            "/mavros/statustext/send", StatusText, queue_size=10
+        )
 
         # Service clients for waypoint operations
         self.waypoint_pull_client = rospy.ServiceProxy(
@@ -138,6 +149,11 @@ class WaypointManager:
         rospy.loginfo(f"Waypoint {msg.wp_seq} reached")
         self.waypoint_reached = msg.wp_seq
 
+        if self.waypoint_reached < len(self.waypoint_list.waypoints):
+            wp = self.waypoint_list.waypoints[self.waypoint_reached]
+            if int(wp.param1) > 0:
+                self.send_status(f"Loiter FINISHED. Continuing Mission")
+
     def handle_drone_waypoint_request(self, req):
         """Addwaypoint rosservice request function"""
         response = AddWaypointResponse()
@@ -152,13 +168,23 @@ class WaypointManager:
         response.success = True
         return response
 
+    def send_status(self, text, throttle=False):
+        now = time.time()
+
+        if not throttle or (now - self.last_status_time > self.status_interval):
+            status_msg = StatusText()
+            status_msg.severity = 6  # 6 = NOTICE
+            status_msg.text = text
+            self.status_pub.publish(status_msg)
+            self.last_status_time = now
+
     def main(self):
         """Main function that waits for a confirmed connection before performing waypoint operations."""
         rospy.loginfo("Waiting for connection to be established...")
         while not rospy.is_shutdown() and not self.connected:
             rospy.sleep(0.5)
         rospy.loginfo("Connection established. Proceeding with waypoint operations.")
-
+        self.send_status("Heartbeat Established with WP manager")
         # Wait for the waypoint pull service to be available and pull current waypoints
         rospy.wait_for_service("/mavros/mission/pull")
         try:
