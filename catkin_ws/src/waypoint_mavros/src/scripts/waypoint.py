@@ -7,6 +7,7 @@ from mavros_msgs.srv import (
     WaypointPush,
     WaypointClear,
     WaypointPushRequest,
+    SetMode,
 )
 from mavros_msgs.msg import (
     WaypointList,
@@ -67,6 +68,9 @@ class WaypointManager:
             "/DelWaypoint", DelWaypoint, self.handle_waypoint_delete_request
         )
         rospy.loginfo("Waypoint Deletion service ready")
+
+        rospy.wait_for_service("/mavros/set_mode")
+        self.set_mode = rospy.ServiceProxy("/mavros/set_mode", SetMode)
 
     def state_callback(self, msg):
         """Callback to update the connection status from MAVROS."""
@@ -151,6 +155,7 @@ class WaypointManager:
         if self.waypoint_reached < len(self.waypoint_list.waypoints):
             wp = self.waypoint_list.waypoints[self.waypoint_reached]
             if int(wp.param1) > 0:
+                self.change_mode("RTL")
                 self.send_status(f"loiter finished. continuing mission")
 
     def handle_drone_waypoint_request(self, req):
@@ -178,6 +183,15 @@ class WaypointManager:
             self.status_pub.publish(status_msg)
             self.last_status_time = now
 
+    def change_mode(self, mode):
+        rospy.loginfo(f"Setting mode to {mode}...")
+        response = self.set_mode(custom_mode=mode)
+
+        if response.mode_sent:
+            rospy.loginfo(f"Mode changed to {mode}")
+        else:
+            rospy.logerr("Failed to change mode")
+
     def main(self):
         """Main function that waits for a confirmed connection before performing waypoint operations."""
         rospy.loginfo("Waiting for connection to be established...")
@@ -197,7 +211,7 @@ class WaypointManager:
                 rospy.set_param("/num_waypoints", str(response.wp_received))
                 rospy.loginfo(self.waypoint_list.waypoints)
                 for i, wp in enumerate(self.waypoint_list.waypoints):
-                    if wp.command == 22: # 20 is rtl, 22 is takeoff
+                    if wp.command == 22:  # 20 is rtl, 22 is takeoff
                         rospy.set_param("/rtl_index", str(i))
             else:
                 rospy.loginfo("Failed to pull waypoints.")
