@@ -19,6 +19,11 @@ from mavros_msgs.msg import (
 )
 from waypoint_mavros.srv import AddWaypoint, AddWaypointResponse, AddWaypointRequest
 from waypoint_mavros.srv import DelWaypointResponse, DelWaypoint, DelWaypointRequest
+from waypoint_mavros.srv import (
+    UpdateMission,
+    UpdateMissionRequest,
+    UpdateMissionResponse,
+)
 
 RED = "\033[91m"
 GREEN = "\033[92m"
@@ -71,6 +76,11 @@ class WaypointManager:
 
         rospy.wait_for_service("/mavros/set_mode")
         self.set_mode = rospy.ServiceProxy("/mavros/set_mode", SetMode)
+
+        self.update_service = rospy.Service(
+            "/UpdateMission", UpdateMission, self.handle_update_mission_request
+        )
+        rospy.loginfo("UpdateMission service ready")
 
     def state_callback(self, msg):
         """Callback to update the connection status from MAVROS."""
@@ -155,8 +165,12 @@ class WaypointManager:
         if self.waypoint_reached < len(self.waypoint_list.waypoints):
             wp = self.waypoint_list.waypoints[self.waypoint_reached]
             if int(wp.param1) > 0:
-                self.change_mode("RTL")
-                self.send_status(f"loiter finished. continuing mission")
+                if int(wp.command) == 16:  # 16 is for mav_cmd_nav_waypoint
+                    message = "jetson setting rtl"
+                    self.change_mode("RTL")
+                else:
+                    message = "loiter finished. continuing mission"
+                self.send_status(message)
 
     def handle_drone_waypoint_request(self, req):
         """Addwaypoint rosservice request function"""
@@ -192,6 +206,60 @@ class WaypointManager:
         else:
             rospy.logerr("Failed to change mode")
 
+    def handle_update_mission_request(self, req):
+        response = UpdateMissionResponse()
+        try:
+            rospy.wait_for_service("/mavros/mission/pull")
+            pull_resp = self.waypoint_pull_client()
+
+            if not pull_resp.success:
+                rospy.logwarn("Failed to pull waypoints.")
+                response.success = False
+                return response
+
+            rospy.set_param("/num_waypoints", str(pull_resp.wp_received))
+            rospy.loginfo(f"Successfully received {pull_resp.wp_received} waypoints.")
+            rospy.loginfo(self.waypoint_list.waypoints)
+
+            takeoff_index = -1
+            rtl_index = len(self.waypoint_list.waypoints)
+
+            for i, wp in enumerate(self.waypoint_list.waypoints):
+                if wp.command == 22:  # Takeoff
+                    takeoff_index = i
+                elif wp.command == 20:  # RTL
+                    rtl_index = i
+                    break
+
+            next_after_takeoff = takeoff_index + 1
+            for i in range(takeoff_index + 1, rtl_index):
+                if self.waypoint_list.waypoints[i].command == 16:
+                    next_after_takeoff = i
+                    break
+
+            last_before_rtl = rtl_index - 1
+            for i in range(rtl_index - 1, takeoff_index, -1):
+                if self.waypoint_list.waypoints[i].command == 16:
+                    last_before_rtl = i
+                    break
+
+            rospy.set_param("/takeoff_index", str(takeoff_index))
+            rospy.set_param("/rtl_index", str(rtl_index))
+            rospy.set_param("/next_after_takeoff", str(next_after_takeoff))
+            rospy.set_param("/last_before_rtl", str(last_before_rtl))
+
+            rospy.loginfo(f"Set /takeoff_index to {takeoff_index}")
+            rospy.loginfo(f"Set /rtl_index to {rtl_index}")
+            rospy.loginfo(f"Set /next_after_takeoff to {next_after_takeoff}")
+            rospy.loginfo(f"Set /last_before_rtl to {last_before_rtl}")
+
+            response.success = True
+        except rospy.ServiceException as e:
+            rospy.logerr(f"Service call failed: {e}")
+            response.success = False
+
+        return response
+
     def main(self):
         """Main function that waits for a confirmed connection before performing waypoint operations."""
         rospy.loginfo("Waiting for connection to be established...")
@@ -200,23 +268,13 @@ class WaypointManager:
         rospy.loginfo("Connection established. Proceeding with waypoint operations.")
         self.send_status("Heartbeat Established with WP manager")
 
-        # Wait for the waypoint pull service to be available and pull current waypoints
-        rospy.wait_for_service("/mavros/mission/pull")
-        try:
-            response = self.waypoint_pull_client()
-            if response.success:
-                rospy.loginfo(
-                    f"Successfully received {response.wp_received} waypoints."
-                )
-                rospy.set_param("/num_waypoints", str(response.wp_received))
-                rospy.loginfo(self.waypoint_list.waypoints)
-                for i, wp in enumerate(self.waypoint_list.waypoints):
-                    if wp.command == 22:  # 20 is rtl, 22 is takeoff
-                        rospy.set_param("/rtl_index", str(i))
-            else:
-                rospy.loginfo("Failed to pull waypoints.")
-        except rospy.ServiceException as e:
-            rospy.loginfo(f"Service call failed: {e}")
+        req = UpdateMissionRequest()
+        resp = self.handle_update_mission_request(req)
+
+        if resp.success:
+            rospy.loginfo("Mission updated successfully via internal service call.")
+        else:
+            rospy.logwarn("Mission update failed.")
 
         # Example: Insert a new waypoint once connected and after pulling current waypoints
         # time.sleep(2)

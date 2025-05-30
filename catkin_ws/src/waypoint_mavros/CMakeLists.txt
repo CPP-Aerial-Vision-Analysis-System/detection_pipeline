@@ -58,6 +58,7 @@ add_service_files(
    FILES
    AddWaypoint.srv
    DelWaypoint.srv
+   UpdateMission.srv
  )
 
 ## Generate actions in the 'action' folder
