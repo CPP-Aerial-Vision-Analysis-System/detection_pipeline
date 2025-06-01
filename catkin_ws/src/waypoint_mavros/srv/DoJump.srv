@@ -1,0 +1,5 @@
+int32 target_index
+int32 repeat
+int32 insert_index
+---
+bool success

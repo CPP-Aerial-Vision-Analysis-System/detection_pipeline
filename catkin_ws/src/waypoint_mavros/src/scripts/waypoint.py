@@ -19,6 +19,7 @@ from mavros_msgs.msg import (
 )
 from waypoint_mavros.srv import AddWaypoint, AddWaypointResponse, AddWaypointRequest
 from waypoint_mavros.srv import DelWaypointResponse, DelWaypoint, DelWaypointRequest
+from waypoint_mavros.srv import DoJump, DoJumpResponse, DoJumpRequest
 from waypoint_mavros.srv import (
     UpdateMission,
     UpdateMissionRequest,
@@ -73,6 +74,9 @@ class WaypointManager:
             "/DelWaypoint", DelWaypoint, self.handle_waypoint_delete_request
         )
         rospy.loginfo("Waypoint Deletion service ready")
+
+        self.dojump_service = rospy.Service("/DoJump", DoJump, self.handle_do_jump_request)
+        rospy.loginfo("Do Jump insertion service ready")
 
         rospy.wait_for_service("/mavros/set_mode")
         self.set_mode = rospy.ServiceProxy("/mavros/set_mode", SetMode)
@@ -156,6 +160,26 @@ class WaypointManager:
         self.waypoint_list.waypoints.insert(index, new_waypoint)
         self.push_waypoints()
         rospy.loginfo("New waypoint inserted into the WaypointList object.")
+    
+    def insert_do_jump(self, target_index, repeat_count, insert_index):
+        """Insert a DO_JUMP command into the waypoint list and push the update."""
+        do_jump = Waypoint()
+        do_jump.frame = 0  # MAV_FRAME_MISSION
+        do_jump.command = 177  # MAV_CMD_DO_JUMP
+        do_jump.is_current = False
+        do_jump.autocontinue = True
+        do_jump.param1 = target_index  # Target waypoint index to jump to
+        do_jump.param2 = repeat_count  # Number of times to repeat
+        do_jump.param3 = 0
+        do_jump.param4 = 0
+        do_jump.x_lat = 0
+        do_jump.y_long = 0
+        do_jump.z_alt = 0
+        self.pull_waypoints()
+        rospy.loginfo(f"Inserting DO_JUMP at index {insert_index} -> jumps to {target_index} x{repeat_count}")
+        self.waypoint_list.waypoints.insert(insert_index, do_jump)
+        self.push_waypoints()
+        rospy.loginfo("DO_JUMP command inserted into the WaypointList.")
 
     def wp_reached_cb(self, msg):
         """Callback for when a waypoint is reached."""
@@ -166,8 +190,8 @@ class WaypointManager:
             wp = self.waypoint_list.waypoints[self.waypoint_reached]
             if int(wp.param1) > 0:
                 if int(wp.command) == 16:  # 16 is for mav_cmd_nav_waypoint
-                    message = "jetson setting rtl"
-                    self.change_mode("RTL")
+                    message = "loiter done continuing mission"
+                    #self.change_mode("RTL")
                 else:
                     message = "loiter finished. continuing mission"
                 self.send_status(message)
@@ -183,6 +207,13 @@ class WaypointManager:
         """delwaypoint rosservice request function"""
         response = DelWaypointResponse()
         self.delete_waypoint(req.index)
+        response.success = True
+        return response
+    
+    def handle_do_jump_request(self, req):
+        """delwaypoint rosservice request function"""
+        response = DoJumpResponse()
+        self.insert_do_jump(req.target_index, req.repeat, req.insert_index)
         response.success = True
         return response
 
