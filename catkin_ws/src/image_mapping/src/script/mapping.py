@@ -51,7 +51,10 @@ from mavros_msgs.msg import StatusText
 from std_msgs.msg import Bool
 import rospy
 import re
-
+import subprocess
+import time
+from odm_process import ODMProcessor
+from copy_transfer import ResultsTransfer
 
 class MissionCameraTrigger:
     def __init__(self):
@@ -60,6 +63,40 @@ class MissionCameraTrigger:
             "/mavros/statustext/recv", StatusText, self.statustext_callback
         )
         self.camera_trigger_pub = rospy.Publisher("/camera/trigger", Bool, queue_size=10)
+
+        self.image_folder =r'C:\Users\valde\Desktop\cs_classes\SUAS\ODLC_Machine_Inferencing_System_2024-2025\Phalaborwa_5530'
+        self.results_folder=r'C:\Users\valde\Desktop\cs_classes\SUAS\ODLC_Machine_Inferencing_System_2024-2025\results'
+        self.destination_folder=r'D:\Test'
+
+    def run_mapping():
+        rospy.loginfo("Starting ODM Processing...")
+        processor = ODMProcessor()
+        try:
+            processor.start_container()
+            processor.process_images(
+                image_folder=self.image_folder,
+                source_folder=self.results_folder
+            )
+            rospy.loginfo("ODM Processing Completed")
+        except Exception as e:
+            rospy.logerr(f"ODM Processing Failed")
+            return False
+        finally:
+            processor.stop_container()
+
+        rospy.loginfo("Starting file transfer...")
+        custom_transfer = ResultsTransfer(
+            source_folder=self.results_folder,
+            destination_folder=self.destination_folder,
+            retry_delay=10
+        )
+
+        transfer_success = custom_transfer.transfer_files()
+        if transfer_success:
+            rospy.loginfo("Files successfully transferred to USB")
+        else:
+            rospy.logerr("Failed to transfer files")
+        return transfer_success
 
     def statustext_callback(self, msg):
         if "DigiCamCtrl" in msg.text:
@@ -71,7 +108,12 @@ class MissionCameraTrigger:
     def trigger_camera(self):
         rospy.loginfo("Triggering Jetson-side camera")
         self.camera_trigger_pub.publish(Bool(data=True))
+        if self.run_mapping():
+            rospy.loginfo("Mapping and file transfer completed")
+        else:
+            rospy.logerr("Mapping or file transfer failed")
 
+# Two approaches, run mapping after a certain number of images or force it
 
 if __name__ == "__main__":
     mapping_node = MissionCameraTrigger()
