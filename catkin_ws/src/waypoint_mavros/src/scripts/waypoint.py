@@ -191,7 +191,7 @@ class WaypointManager:
             if int(wp.param1) > 0:
                 if int(wp.command) == 16:  # 16 is for mav_cmd_nav_waypoint
                     message = "loiter done continuing mission"
-                    #self.change_mode("RTL")
+                    self.change_mode("RTL")
                 else:
                     message = "loiter finished. continuing mission"
                 self.send_status(message)
@@ -250,7 +250,7 @@ class WaypointManager:
 
             rospy.set_param("/num_waypoints", str(pull_resp.wp_received))
             rospy.loginfo(f"Successfully received {pull_resp.wp_received} waypoints.")
-            rospy.loginfo(self.waypoint_list.waypoints)
+            #rospy.loginfo(self.waypoint_list.waypoints)
 
             takeoff_index = -1
             rtl_index = len(self.waypoint_list.waypoints)

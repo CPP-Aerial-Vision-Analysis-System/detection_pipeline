@@ -23,6 +23,8 @@ def gps_cb(msg):
     """Callback to store the latest GPS data."""
     global latest_gps
     latest_gps = msg
+    lat = msg.latitude
+    long = msg.longitude
 
 def pose_callback(msg):
     """Callback to store the latest yaw data (Z-axis rotation)."""
