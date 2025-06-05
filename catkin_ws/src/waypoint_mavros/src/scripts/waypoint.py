@@ -148,7 +148,7 @@ class WaypointManager:
         new_waypoint.command = 16  # MAV_CMD_NAV_WAYPOINT
         new_waypoint.is_current = False
         new_waypoint.autocontinue = True
-        new_waypoint.param1 = 15
+        new_waypoint.param1 = 5
         new_waypoint.param2 = 0
         new_waypoint.param3 = 0
         new_waypoint.param4 = float("nan")
@@ -191,7 +191,7 @@ class WaypointManager:
             if int(wp.param1) > 0:
                 if int(wp.command) == 16:  # 16 is for mav_cmd_nav_waypoint
                     message = "loiter done continuing mission"
-                    self.change_mode("RTL")
+                    #self.change_mode("RTL")
                 else:
                     message = "loiter finished. continuing mission"
                 self.send_status(message)
