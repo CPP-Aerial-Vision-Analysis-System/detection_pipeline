@@ -190,8 +190,8 @@ class WaypointManager:
             wp = self.waypoint_list.waypoints[self.waypoint_reached]
             if int(wp.param1) > 0:
                 if int(wp.command) == 16:  # 16 is for mav_cmd_nav_waypoint
-                    message = "loiter done continuing mission"
-                    #self.change_mode("RTL")
+                    message = "obj waypoint reached."
+                    #self.change_mode("AUTO")
                 else:
                     message = "loiter finished. continuing mission"
                 self.send_status(message)

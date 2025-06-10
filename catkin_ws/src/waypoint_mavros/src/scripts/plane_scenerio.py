@@ -4,7 +4,7 @@ import rospy
 from mavros_msgs.msg import WaypointReached, State, StatusText
 from mavros_msgs.srv import WaypointSetCurrent, WaypointSetCurrentRequest, SetMode, CommandBool, CommandTOL
 
-ALT = 18
+ALT = 20
 
 class Plane:
     def __init__(self):
