@@ -8,6 +8,7 @@ import shutil
 import numpy as np
 import os
 import rospkg
+import time
 import matplotlib.pyplot as plt
 from pathlib import Path
 from datetime import datetime
@@ -16,7 +17,6 @@ from mavros_msgs.msg import StatusText  # For MAVLink status messages
 
 class ImageStitcher:
     def __init__(self, nfeatures=5000, min_matches=5, distance_threshold=0.6):
-        # Feature extractor (ORB)
         self.orb = cv2.ORB_create(nfeatures=nfeatures, scaleFactor=1.2, nlevels=8)
         self.min_matches = min_matches
         self.distance_threshold = distance_threshold
@@ -28,41 +28,38 @@ class ImageStitcher:
         rospy.Subscriber("/mavros/statustext/recv", StatusText, self.statustext_callback)
 
         rp = rospkg.RosPack()
-        self.image_folder = os.path.join(rp.get_path("video_cam"), "mapping")
-        self.result_folder = os.path.join(rp.get_path("video_cam"), "result")
+
+        self.usb_mount_path = r'/media/astra/USB DISK'
+        self.image_folder = os.path.join(rp.get_path("video_cam"), "camera_feed")
+        #self.result_folder = os.path.join(rp.get_path("video_cam"), "result")
+        self.result_folder = os.path.join(self.usb_mount_path, "results")
         Path(self.image_folder).mkdir(parents=True, exist_ok=True)
         Path(self.result_folder).mkdir(parents=True, exist_ok=True)
 
     def statustext_callback(self, msg):
-        """Callback when a message from GCS is received."""
         if "map" in msg.text.lower():
             rospy.logwarn("Received 'map' command. Starting stitching...")
             self.send_ack("Map command received. Starting stitching...")
 
             try:
-                # Stitching pipeline
                 self.stitch_images(self.image_folder)
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 result_file = Path(self.result_folder) / f"stitched_output_{timestamp}.jpg"
                 self.save_result(str(result_file))
-
-                # Optional: Transfer file to another location if needed
-                #file_transfer(self.result_folder, result_file)
-
                 self.send_ack(f"Stitching complete. Saved: {result_file.name}")
+                time.sleep(3)
+                self.unmount_usb()
             except Exception as e:
                 rospy.logerr(f"Stitching failed: {e}")
                 self.send_ack(f"Stitching failed: {e}")
 
     def send_ack(self, text):
-        """Send feedback to GCS (Mission Planner's Messages tab)."""
         status_msg = StatusText()
-        status_msg.severity = 6  # INFO/NOTICE level
+        status_msg.severity = 6
         status_msg.text = text
         self.message_sender.publish(status_msg)
 
     def load_images(self, folder_path, max_size=2000):
-        """Load and resize images from specified folder"""
         path = sorted(Path(folder_path).glob("*.jpg"))
         img_list = []
 
@@ -70,7 +67,6 @@ class ImageStitcher:
         for img_path in path:
             img = cv2.imread(str(img_path))
             if img is not None:
-                # Resize image while maintaining aspect ratio
                 height, width = img.shape[:2]
                 if height > max_size or width > max_size:
                     scale = max_size / max(height, width)
@@ -84,7 +80,6 @@ class ImageStitcher:
         return img_list
 
     def stitch_images(self, folder_path):
-        """Main stitching process"""
         img_list = self.load_images(folder_path)
         print(f"Processing {len(img_list)} images...")
 
@@ -92,7 +87,6 @@ class ImageStitcher:
             img1 = img_list.pop(0)
             img2 = img_list.pop(0)
 
-            # Extract ORB features
             kp1, des1 = self.orb.detectAndCompute(img1, None)
             kp2, des2 = self.orb.detectAndCompute(img2, None)
 
@@ -100,22 +94,17 @@ class ImageStitcher:
                 print("Warning: No features detected in one or both images")
                 continue
 
-            # Brute-force matcher with Hamming distance
-            bf = cv2.BFMatcher_create(cv2.NORM_HAMMING)
+            # ✅ OpenCV 4.2-compatible brute-force matcher
+            bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
             matches = bf.knnMatch(des1, des2, k=2)
 
-            # Filter good matches using Lowe's ratio test
             good = [m for m, n in matches if m.distance < self.distance_threshold * n.distance]
 
             if len(good) > self.min_matches:
-                # Extract matched keypoints
                 src_pts = np.float32([kp1[m.queryIdx].pt for m in good]).reshape(-1, 1, 2)
                 dst_pts = np.float32([kp2[m.trainIdx].pt for m in good]).reshape(-1, 1, 2)
 
-                # Compute homography matrix
                 M, _ = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
-
-                # Warp and stitch
                 result = self.warp_images(img2, img1, M)
                 img_list.insert(0, result)
 
@@ -123,7 +112,6 @@ class ImageStitcher:
             self.result = cv2.cvtColor(img_list[0], cv2.COLOR_BGR2RGB)
 
     def warp_images(self, img1, img2, H):
-        """Warp and blend two images using homography matrix"""
         rows1, cols1 = img1.shape[:2]
         rows2, cols2 = img2.shape[:2]
 
@@ -134,20 +122,27 @@ class ImageStitcher:
 
         [x_min, y_min] = np.int32(all_points.min(axis=0).ravel() - 0.5)
         [x_max, y_max] = np.int32(all_points.max(axis=0).ravel() + 0.5)
+
+        width = int(x_max - x_min)
+        height = int(y_max - y_min)
+        max_output_size = 10000 * 10000 # modify for higher limit, jetson low
+
+        if width > 20000 or height > 20000 or (width * height > max_output_size): # max before runtime error
+            print(f"⚠️ Skipping warp: estimated output size too large ({width}x{height})")
+            return img1
+
         translation = [-x_min, -y_min]
         H_translation = np.array([[1, 0, translation[0]], [0, 1, translation[1]], [0, 0, 1]])
 
         result_img = cv2.warpPerspective(img2, H_translation @ H, (x_max - x_min, y_max - y_min))
         result_img[translation[1]:rows1 + translation[1], translation[0]:cols1 + translation[0]] = img1
 
-        # Remove black borders
         gray = cv2.cvtColor(result_img, cv2.COLOR_BGR2GRAY)
         _, thresh = cv2.threshold(gray, 1, 255, cv2.THRESH_BINARY)
         x, y, w, h = cv2.boundingRect(thresh)
         return result_img[y:y + h, x:x + w]
 
     def save_result(self, output_path):
-        """Save the stitched result"""
         if self.result is not None:
             Path(output_path).parent.mkdir(parents=True, exist_ok=True)
             cv2.imwrite(output_path, cv2.cvtColor(self.result, cv2.COLOR_RGB2BGR))
@@ -156,7 +151,6 @@ class ImageStitcher:
             raise ValueError("No result to save. Run stitching first.")
 
     def show_result(self):
-        """Display the stitched result (for debugging)"""
         if self.result is not None:
             plt.figure(figsize=(15, 10))
             plt.imshow(self.result)
@@ -165,8 +159,21 @@ class ImageStitcher:
         else:
             print("No result available. Run stitch_images first.")
 
+    def unmount_usb(self):
+        """Unmount the USB drive after stitching is complete."""
+        try:
+            #mount_point = "name of USB drive"  # Replace with actual mount point
+            password = "UAV_Lab"
+            os.system(f'echo {password} | sudo -S umount "{self.usb_mount_path}"')
+            #os.system(f"sudo umount {mount_point}")
+            message = "USB drive unmounted successfully."
+            rospy.loginfo(message)
+            self.send_ack(message)
+        except Exception as e:
+            message = f"Failed to unmount USB drive: {e}"
+            rospy.logerr(message)
+            self.send_ack(message)
 
-# Optional function to transfer the result file elsewhere
 def file_transfer(destination_folder, result_file):
     try:
         Path(destination_folder).mkdir(parents=True, exist_ok=True)
@@ -178,11 +185,10 @@ def file_transfer(destination_folder, result_file):
 
 
 if __name__ == "__main__":
-    # Initialize stitcher with desired parameters
     stitcher = ImageStitcher(
-        nfeatures=2000,        # Number of ORB features to detect
-        min_matches=5,         # Minimum matches required
-        distance_threshold=0.7  # Distance threshold for good matches
+        nfeatures=2000,
+        min_matches=5,
+        distance_threshold=0.7
     )
 
     rospy.loginfo("Image stitcher node is ready. Send 'map' command via Mission Planner.")
