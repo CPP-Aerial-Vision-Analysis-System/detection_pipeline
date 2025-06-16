@@ -30,7 +30,7 @@ class ImageStitcher:
         rp = rospkg.RosPack()
 
         self.usb_mount_path = r'/media/astra/USB DISK'
-        self.image_folder = os.path.join(rp.get_path("video_cam"), "camera_feed")
+        self.image_folder = os.path.join(rp.get_path("video_cam"), "mapping")
         #self.result_folder = os.path.join(rp.get_path("video_cam"), "result")
         self.result_folder = os.path.join(self.usb_mount_path, "results")
         Path(self.image_folder).mkdir(parents=True, exist_ok=True)
