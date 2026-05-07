@@ -1,0 +1,3 @@
+If you want the actual code used for the competition, look at saturday-test branch
+
+WW encryption 
